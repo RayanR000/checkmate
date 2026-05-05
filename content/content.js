@@ -2,6 +2,13 @@ import { BoardReader } from './board-reader.js';
 
 const reader = new BoardReader();
 let observer = null;
+const stockfish = new Worker(chrome.runtime.getURL('worker/stockfish-worker.js'));
+
+stockfish.onmessage = (e) => {
+    console.log("Best move from engine:", e.data.bestMove);
+};
+
+stockfish.postMessage({ command: 'init' });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "toggle") {
@@ -22,7 +29,7 @@ function startObserving() {
     observer = new MutationObserver(() => {
         const state = reader.parsePosition();
         const fen = reader.toFEN(state);
-        console.log("Board updated, new FEN:", fen);
+        stockfish.postMessage({ command: 'analyze', fen });
     });
 
     observer.observe(board, { childList: true, subtree: true });
