@@ -6,6 +6,10 @@ function initStockfish() {
     const worker = new Worker(chrome.runtime.getURL('worker/stockfish-worker.js'));
     worker.postMessage({ command: 'init', stockfishUrl: chrome.runtime.getURL('worker/stockfish.js') });
     worker.onmessage = (e) => {
+        if (e.data.engineReady && swPort) {
+            console.log('[Checkmate Offscreen] engine ready');
+            swPort.postMessage({ action: 'status', text: 'SF:ready' });
+        }
         const move = e.data.bestMove;
         if (move && swPort) {
             console.log('[Checkmate Offscreen] bestMove:', move);
