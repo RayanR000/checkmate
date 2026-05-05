@@ -3,14 +3,14 @@
   "name": "Checkmate",
   "version": "1.0.0",
   "description": "Real-time move suggestions for Chess.com",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "tabs", "offscreen"],
   "host_permissions": ["https://www.chess.com/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "web_accessible_resources": [
     {
-      "resources": ["worker/stockfish.js", "worker/stockfish.wasm", "worker/stockfish-worker.js"],
+      "resources": ["worker/stockfish.js", "worker/stockfish.wasm", "worker/stockfish-worker.js", "worker/stockfish.worker.js"],
       "matches": ["https://www.chess.com/*"]
     }
   ],
