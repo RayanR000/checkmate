@@ -1,12 +1,16 @@
-import { BoardReader } from './board-reader.js';
-import { MoveRenderer } from './move-renderer.js';
-import { ToggleUI } from './toggle-ui.js';
-
-const reader = new BoardReader();
+let reader = null;
 let renderer = null;
 let ui = null;
 let observer = null;
 const stockfish = new Worker(chrome.runtime.getURL('worker/stockfish-worker.js'));
+
+async function initModules() {
+    const { BoardReader } = await import(chrome.runtime.getURL('content/board-reader.js'));
+    const { MoveRenderer } = await import(chrome.runtime.getURL('content/move-renderer.js'));
+    const { ToggleUI } = await import(chrome.runtime.getURL('content/toggle-ui.js'));
+
+    reader = new BoardReader();
+}
 
 stockfish.onmessage = (e) => {
     const move = e.data.bestMove;
@@ -24,10 +28,11 @@ function uciToIndex(uci) {
     return rank * 8 + file;
 }
 
-stockfish.postMessage({ command: 'analyze', fen: "startpos" }); // Optional: initial state
+stockfish.postMessage({ command: 'analyze', fen: "startpos" });
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     if (request.action === "toggle") {
+        if (!reader) await initModules();
         if (request.enabled) {
             startSession();
         } else {
@@ -35,6 +40,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
     }
 });
+...
 
 function startSession() {
     const board = reader.getBoardElement();
