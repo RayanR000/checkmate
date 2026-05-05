@@ -11,11 +11,16 @@
             } else {
                 endSession();
             }
-        } else if (request.action === 'bestMove' && renderer) {
-            const move = request.move;
-            if (move && move !== '(none)') {
-                renderer.drawArrow(uciToIndex(move.substring(0, 2)), uciToIndex(move.substring(2, 4)));
-                if (ui) ui.updateNotation(move);
+        } else if (request.action === 'bestMove') {
+            console.log('[Checkmate] bestMove received:', request.move, 'renderer:', !!renderer);
+            if (renderer) {
+                const move = request.move;
+                if (move && move !== '(none)') {
+                    renderer.drawArrow(uciToIndex(move.substring(0, 2)), uciToIndex(move.substring(2, 4)));
+                    if (ui) ui.updateNotation(move);
+                } else {
+                    console.warn('[Checkmate] bestMove was (none) or empty');
+                }
             }
         }
     });
@@ -30,7 +35,8 @@
         if (ui) return; // already active
         reader = new BoardReader();
         const board = reader.getBoardElement();
-        if (!board) { console.warn('Checkmate: board not found'); return; }
+        if (!board) { console.warn('[Checkmate] board not found'); return; }
+        console.log('[Checkmate] board found, starting session');
         renderer = new MoveRenderer(board);
         ui = new ToggleUI((enabled) => { if (!enabled) endSession(); });
         startObserving();
@@ -52,17 +58,17 @@
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 const state = reader.parsePosition();
-                if (!state) return;
+                if (!state) { console.warn('[Checkmate] parsePosition returned null'); return; }
                 const fen = reader.toFEN(state);
-                chrome.runtime.sendMessage({ action: 'analyze', fen }).catch(() => {});
+                console.log('[Checkmate] sending FEN:', fen);
+                chrome.runtime.sendMessage({ action: 'analyze', fen }).catch((e) => {
+                    console.error('[Checkmate] sendMessage failed:', e);
+                });
             }, 150);
         };
 
         observer = new MutationObserver(analyze);
-        // chess.com moves pieces by changing their square-XY class (attribute change)
         observer.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-
-        // Analyze the current position immediately on activation
         analyze();
     }
 
