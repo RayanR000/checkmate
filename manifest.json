@@ -10,7 +10,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["worker/stockfish.js", "worker/stockfish.wasm", "worker/stockfish.worker.js", "content/board-reader.js", "content/move-renderer.js", "content/toggle-ui.js"],
+      "resources": ["worker/stockfish.js", "worker/stockfish.wasm", "worker/stockfish-worker.js", "content/board-reader.js", "content/move-renderer.js", "content/toggle-ui.js"],
       "matches": ["https://www.chess.com/*"]
     }
   ],
