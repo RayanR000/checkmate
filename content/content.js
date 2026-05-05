@@ -4,8 +4,12 @@
     let ui = null;
     let observer = null;
     
-    // Web Worker must be loaded with absolute URL
-    const stockfish = new Worker(chrome.runtime.getURL('worker/stockfish-worker.js'));
+    // Content scripts can't construct Workers from chrome-extension:// URLs directly.
+    // Wrap in a blob worker that importScripts the extension file instead.
+    const workerScriptUrl = chrome.runtime.getURL('worker/stockfish-worker.js');
+    const workerBlob = new Blob([`importScripts('${workerScriptUrl}');`], { type: 'application/javascript' });
+    const stockfish = new Worker(URL.createObjectURL(workerBlob));
+    stockfish.postMessage({ command: 'init', stockfishUrl: chrome.runtime.getURL('worker/stockfish.js') });
 
     async function initModules() {
         try {
