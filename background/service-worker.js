@@ -1,64 +1,76 @@
-let offscreenReady = false;
-let pendingAnalysis = null;
+let offscreenPort = null;
 let lastTabId = null;
+let pendingAnalysis = null;
 
 function statusToTab(text) {
-    if (lastTabId) chrome.tabs.sendMessage(lastTabId, { action: 'status', text }).catch(() => {});
+    console.log('[Checkmate SW] status:', text, 'tab:', lastTabId);
+    if (lastTabId) {
+        chrome.tabs.sendMessage(lastTabId, { action: 'status', text }).catch(() => {});
+    }
 }
 
+// Offscreen connects to us via port when it loads (or reconnects after SW sleep).
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'offscreen') return;
+    offscreenPort = port;
+    console.log('[Checkmate SW] offscreen port connected');
+
+    port.onMessage.addListener((msg) => {
+        if (msg.action === 'bestMove') {
+            console.log('[Checkmate SW] bestMove from offscreen:', msg.move, '→ tab', lastTabId);
+            if (lastTabId) {
+                chrome.tabs.sendMessage(lastTabId, { action: 'bestMove', move: msg.move }).catch((e) => {
+                    console.error('[Checkmate SW] tabs.sendMessage failed:', e.message);
+                });
+            }
+        } else if (msg.action === 'status') {
+            statusToTab(msg.text);
+        }
+    });
+
+    port.onDisconnect.addListener(() => {
+        offscreenPort = null;
+        console.log('[Checkmate SW] offscreen port disconnected');
+    });
+
+    // Dispatch any analysis that arrived before the port was ready.
+    if (pendingAnalysis) {
+        const { fen } = pendingAnalysis;
+        pendingAnalysis = null;
+        offscreenPort.postMessage({ action: 'analyze', fen });
+    }
+});
+
 async function ensureOffscreen() {
-    if (offscreenReady) return;
     try {
         await chrome.offscreen.createDocument({
             url: chrome.runtime.getURL('offscreen/offscreen.html'),
             reasons: ['WORKERS'],
             justification: 'Run Stockfish WASM chess engine',
         });
-        console.log('[Checkmate SW] offscreen created, waiting for ready signal');
-        statusToTab('SW:created offscreen');
+        console.log('[Checkmate SW] offscreen document created');
+        // offscreen.js connects via port as soon as it loads — handled in onConnect above.
     } catch (e) {
         if (e.message?.includes('single offscreen document')) {
-            // SW restarted but offscreen doc still alive — mark ready and dispatch.
-            console.log('[Checkmate SW] offscreen already exists (SW restart), sending directly');
-            offscreenReady = true;
-            dispatchPending();
+            // Offscreen doc already exists (SW restarted). Its reconnect timer will fire shortly.
+            console.log('[Checkmate SW] offscreen already exists, waiting for port reconnect');
         } else {
-            console.error('[Checkmate SW] offscreen create FAILED:', e.message);
-            statusToTab('ERR:offscreen ' + e.message.slice(0, 30));
+            console.error('[Checkmate SW] offscreen create failed:', e.message);
+            statusToTab('ERR:' + e.message.slice(0, 30));
         }
-    }
-}
-
-function dispatchPending() {
-    if (pendingAnalysis && offscreenReady) {
-        const { fen, tabId } = pendingAnalysis;
-        pendingAnalysis = null;
-        console.log('[Checkmate SW] dispatching to offscreen, tab:', tabId);
-        chrome.runtime.sendMessage({ action: 'sf_analyze', fen, tabId }).catch((e) => {
-            console.error('[Checkmate SW] sendMessage to offscreen failed:', e.message);
-            chrome.tabs.sendMessage(tabId, { action: 'status', text: 'ERR:offmsg' }).catch(() => {});
-        });
     }
 }
 
 chrome.runtime.onMessage.addListener((request, sender) => {
-    if (request.action === 'offscreen_ready') {
-        offscreenReady = true;
-        console.log('[Checkmate SW] offscreen ready');
-        statusToTab('SW:offscreen ready');
-        dispatchPending();
+    if (request.action !== 'analyze') return;
+    lastTabId = sender.tab?.id;
+    console.log('[Checkmate SW] analyze from tab', lastTabId);
+    statusToTab('SW:got FEN');
 
-    } else if (request.action === 'analyze') {
-        lastTabId = sender.tab?.id;
-        console.log('[Checkmate SW] analyze from tab', lastTabId, 'FEN:', request.fen);
-        if (offscreenReady) {
-            chrome.runtime.sendMessage({ action: 'sf_analyze', fen: request.fen, tabId: lastTabId }).catch((e) => {
-                console.error('[Checkmate SW] sendMessage to offscreen failed:', e.message);
-                statusToTab('ERR:offmsg ' + e.message.slice(0, 20));
-            });
-        } else {
-            pendingAnalysis = { fen: request.fen, tabId: lastTabId };
-            ensureOffscreen();
-        }
+    if (offscreenPort) {
+        offscreenPort.postMessage({ action: 'analyze', fen: request.fen });
+    } else {
+        pendingAnalysis = { fen: request.fen };
+        ensureOffscreen();
     }
 });
