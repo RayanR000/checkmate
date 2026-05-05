@@ -12,11 +12,13 @@
                 endSession();
             }
         } else if (request.action === 'bestMove') {
-            console.log('[Checkmate] bestMove:', request.move);
+            console.log('[Checkmate] bestMove received:', request.move);
+            if (ui) ui.updateNotation(request.move || '(none)');
             if (renderer && request.move && request.move !== '(none)') {
                 renderer.drawArrow(uciToIndex(request.move.substring(0, 2)), uciToIndex(request.move.substring(2, 4)));
-                if (ui) ui.updateNotation(request.move);
             }
+        } else if (request.action === 'status') {
+            if (ui) ui.updateNotation(request.text);
         }
     });
 
@@ -55,9 +57,11 @@
                 const state = reader.parsePosition();
                 if (!state) return;
                 const fen = reader.toFEN(state);
+                if (ui) ui.updateNotation('...');
                 console.log('[Checkmate] sending FEN:', fen);
                 chrome.runtime.sendMessage({ action: 'analyze', fen }).catch((e) => {
-                    console.error('[Checkmate] sendMessage failed:', e);
+                    console.error('[Checkmate] sendMessage failed:', e.message);
+                    if (ui) ui.updateNotation('ERR:send');
                 });
             }, 150);
         };
