@@ -30,9 +30,28 @@ export class BoardReader {
         return boardState;
     }
 
-    // Placeholder: Converts board array to FEN
     toFEN(boardState, turn = 'w') {
-        // Implementation needed to convert array of pieces to FEN string
-        return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        let fen = '';
+        for (let row = 7; row >= 0; row--) {
+            let emptyCount = 0;
+            for (let col = 0; col < 8; col++) {
+                const piece = boardState[row * 8 + col];
+                if (piece) {
+                    if (emptyCount > 0) {
+                        fen += emptyCount;
+                        emptyCount = 0;
+                    }
+                    // Piece format: wp, wr, wn... (first char piece, second char color)
+                    const p = piece[0];
+                    const color = piece[1];
+                    fen += (color === 'w') ? p.toUpperCase() : p.toLowerCase();
+                } else {
+                    emptyCount++;
+                }
+            }
+            if (emptyCount > 0) fen += emptyCount;
+            if (row > 0) fen += '/';
+        }
+        return `${fen} ${turn} - - 0 1`;
     }
 }

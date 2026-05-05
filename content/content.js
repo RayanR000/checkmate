@@ -1,18 +1,39 @@
 import { BoardReader } from './board-reader.js';
 
 const reader = new BoardReader();
+let observer = null;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "toggle") {
         if (request.enabled) {
             injectUI();
-            const state = reader.parsePosition();
-            console.log("Current board state:", state);
+            startObserving();
         } else {
             removeUI();
+            stopObserving();
         }
     }
 });
+
+function startObserving() {
+    const board = reader.getBoardElement();
+    if (!board) return;
+
+    observer = new MutationObserver(() => {
+        const state = reader.parsePosition();
+        const fen = reader.toFEN(state);
+        console.log("Board updated, new FEN:", fen);
+    });
+
+    observer.observe(board, { childList: true, subtree: true });
+}
+
+function stopObserving() {
+    if (observer) {
+        observer.disconnect();
+        observer = null;
+    }
+}
 ...
 
 function injectUI() {
