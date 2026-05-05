@@ -14,6 +14,7 @@ self.onmessage = async (e) => {
         engine.postMessage('uci');
         engine.postMessage('isready');
     } else if (command === 'analyze' && engine) {
+        engine.postMessage('stop');
         engine.postMessage(`position fen ${fen}`);
         engine.postMessage('go depth 15');
     }

@@ -1,4 +1,4 @@
-export class BoardReader {
+class BoardReader {
     constructor() {
         this.boardSelector = 'wc-chess-board';
     }
@@ -7,8 +7,6 @@ export class BoardReader {
         return document.querySelector(this.boardSelector);
     }
 
-    // Parses pieces based on Chess.com's piece class naming convention
-    // e.g., 'piece wp square-14' -> 'wp' at index 14
     parsePosition() {
         const board = this.getBoardElement();
         if (!board) return null;
@@ -18,12 +16,16 @@ export class BoardReader {
 
         pieces.forEach(piece => {
             const classes = piece.className.split(' ');
-            const typeClass = classes.find(c => c.length === 2 && /^[pnbrqk][wb]$/.test(c));
+            // chess.com format: color first then piece type, e.g. "wp" = white pawn
+            const typeClass = classes.find(c => c.length === 2 && /^[wb][pnbrqk]$/.test(c));
             const squareClass = classes.find(c => c.startsWith('square-'));
 
             if (typeClass && squareClass) {
-                const squareIndex = parseInt(squareClass.replace('square-', '')) - 1;
-                boardState[squareIndex] = typeClass;
+                // square-{file}{rank}: e.g. square-14 = file 1, rank 4
+                const squareNum = parseInt(squareClass.replace('square-', ''));
+                const file = Math.floor(squareNum / 10) - 1;
+                const rank = (squareNum % 10) - 1;
+                boardState[rank * 8 + file] = typeClass;
             }
         });
 
@@ -41,9 +43,9 @@ export class BoardReader {
                         fen += emptyCount;
                         emptyCount = 0;
                     }
-                    // Piece format: wp, wr, wn... (first char piece, second char color)
-                    const p = piece[0];
-                    const color = piece[1];
+                    // piece[0] = color (w/b), piece[1] = type (p/n/b/r/q/k)
+                    const color = piece[0];
+                    const p = piece[1];
                     fen += (color === 'w') ? p.toUpperCase() : p.toLowerCase();
                 } else {
                     emptyCount++;

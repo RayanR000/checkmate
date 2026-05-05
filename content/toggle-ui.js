@@ -1,4 +1,4 @@
-export class ToggleUI {
+class ToggleUI {
     constructor(onToggle) {
         this.container = this._createContainer();
         this.onToggle = onToggle;

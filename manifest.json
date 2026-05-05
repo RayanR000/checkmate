@@ -6,12 +6,11 @@
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["https://www.chess.com/*"],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
-    "content_scripts": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "web_accessible_resources": [
     {
-      "resources": ["worker/stockfish.js", "worker/stockfish.wasm", "worker/stockfish-worker.js", "content/board-reader.js", "content/move-renderer.js", "content/toggle-ui.js"],
+      "resources": ["worker/stockfish.js", "worker/stockfish.wasm", "worker/stockfish-worker.js"],
       "matches": ["https://www.chess.com/*"]
     }
   ],
@@ -24,7 +23,12 @@
   "content_scripts": [
     {
       "matches": ["https://www.chess.com/*"],
-      "js": ["content/content.js"]
+      "js": [
+        "content/board-reader.js",
+        "content/move-renderer.js",
+        "content/toggle-ui.js",
+        "content/content.js"
+      ]
     }
   ]
 }
