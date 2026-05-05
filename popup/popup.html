@@ -1,17 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Checkmate</title>
     <style>
-        body { width: 200px; padding: 10px; text-align: center; font-family: sans-serif; }
-        button { padding: 10px 20px; font-size: 14px; cursor: pointer; }
+        :root {
+            --surface-deep: oklch(11% 0.006 245);
+            --surface-mid: oklch(16% 0.007 245);
+            --surface-raised: oklch(20% 0.009 245);
+            --border-subtle: oklch(27% 0.010 245);
+            --text-primary: oklch(92% 0.004 245);
+            --text-secondary: oklch(60% 0.008 245);
+            --accent-amber: oklch(72% 0.14 68);
+        }
+        body {
+            width: 200px;
+            margin: 0;
+            background-color: var(--surface-mid);
+            font-family: Inter, system-ui, -apple-system, sans-serif;
+            color: var(--text-primary);
+        }
+        header {
+            padding: 16px 0 12px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        main {
+            padding: 0 16px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .toggle-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        #toggle-track {
+            width: 36px;
+            height: 20px;
+            background-color: var(--surface-raised);
+            border: 1px solid var(--border-subtle);
+            border-radius: 9999px;
+            padding: 2px;
+            cursor: pointer;
+            transition: background-color 160ms ease-out;
+            position: relative;
+        }
+        #toggle-track.active {
+            background-color: var(--accent-amber);
+            border-color: transparent;
+        }
+        #toggle-thumb {
+            width: 16px;
+            height: 16px;
+            background-color: var(--surface-deep);
+            border-radius: 50%;
+            transition: transform 160ms ease-out;
+        }
+        #toggle-track.active #toggle-thumb {
+            transform: translateX(16px);
+        }
+        #state-label {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        #state-label.active {
+            color: var(--accent-amber);
+        }
     </style>
 </head>
 <body>
-    <h3>Checkmate</h3>
-    <label>
-        <input type="checkbox" id="toggle"> Active
-    </label>
+    <header>Checkmate</header>
+    <main>
+        <div class="toggle-container" id="toggle">
+            <div id="toggle-track">
+                <div id="toggle-thumb"></div>
+            </div>
+            <div id="state-label">Off</div>
+        </div>
+    </main>
     <script src="popup.js"></script>
 </body>
 </html>

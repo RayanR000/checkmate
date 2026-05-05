@@ -5,6 +5,15 @@
   "description": "Real-time move suggestions for Chess.com",
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["https://www.chess.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["worker/stockfish.js", "worker/stockfish.wasm", "worker/stockfish.worker.js"],
+      "matches": ["https://www.chess.com/*"]
+    }
+  ],
   "action": {
     "default_popup": "popup/popup.html"
   },

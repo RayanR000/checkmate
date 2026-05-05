@@ -1,0 +1,1 @@
+Redirecting to /stockfish.wasm@0.10.0/stockfish.js

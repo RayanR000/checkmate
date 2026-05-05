@@ -1,23 +1,27 @@
-// worker/stockfish-worker.js
-// Note: In a real implementation, you would load the actual stockfish.wasm here.
-// For the purpose of this setup, we will create the structure.
+// Import the engine factory
+importScripts('stockfish.js');
 
 let engine = null;
 
+// Initialize when ready
+Stockfish().then((sf) => {
+    engine = sf;
+    engine.addMessageListener((line) => {
+        if (line.startsWith('bestmove')) {
+            const move = line.split(' ')[1];
+            self.postMessage({ bestMove: move });
+        }
+    });
+    
+    // Set up basic engine config
+    engine.postMessage('uci');
+    engine.postMessage('isready');
+});
+
 self.onmessage = (e) => {
     const { command, fen } = e.data;
-
-    if (command === 'init') {
-        // Initialize engine (pseudo-code)
-        console.log("Stockfish engine initializing...");
-        // In a real app: engine = new Worker('path/to/stockfish.js');
-    } else if (command === 'analyze') {
-        console.log("Analyzing FEN:", fen);
-        // Send UCI command to Stockfish
-        // engine.postMessage(`position fen ${fen}`);
-        // engine.postMessage('go depth 15');
-        
-        // Mocking engine response for now
-        self.postMessage({ bestMove: "e2e4" });
+    if (command === 'analyze' && engine) {
+        engine.postMessage(`position fen ${fen}`);
+        engine.postMessage('go depth 15');
     }
 };

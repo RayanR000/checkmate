@@ -24,7 +24,7 @@ function uciToIndex(uci) {
     return rank * 8 + file;
 }
 
-stockfish.postMessage({ command: 'init' });
+stockfish.postMessage({ command: 'analyze', fen: "startpos" }); // Optional: initial state
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "toggle") {
