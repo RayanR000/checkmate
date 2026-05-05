@@ -1,3 +1,4 @@
+(async () => {
 let reader = null;
 let renderer = null;
 let ui = null;
@@ -40,7 +41,6 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
         }
     }
 });
-...
 
 function startSession() {
     const board = reader.getBoardElement();
@@ -84,3 +84,4 @@ function stopObserving() {
         observer = null;
     }
 }
+})();
