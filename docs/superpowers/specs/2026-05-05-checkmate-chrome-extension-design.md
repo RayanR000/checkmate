@@ -43,7 +43,7 @@ Chess players want real-time move suggestions while playing live games on Chess.
 - Outputs FEN string for Stockfish
 
 **2. Stockfish Worker**
-- Loads `stockfish.wasm` in a Web Worker
+- Loads `stockfish.wasm` in a Web Worker (use [official Stockfish.js](https://github.com/nicklai/stockfish.wasm) or [official NNUE build](https://github.com/nicklai/stockfish.wasm/releases))
 - Receives FEN string, sends UCI commands (`position fen ...` then `go depth 15`)
 - Returns best move in algebraic notation (e.g., `e2e4`)
 
