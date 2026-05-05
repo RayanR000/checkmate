@@ -3,36 +3,19 @@
     let renderer = null;
     let ui = null;
     let observer = null;
-    
-    // Content scripts can't construct Workers from chrome-extension:// URLs directly.
-    // Wrap in a blob worker that importScripts the extension file instead.
-    const workerScriptUrl = chrome.runtime.getURL('worker/stockfish-worker.js');
-    const workerBlob = new Blob([`importScripts('${workerScriptUrl}');`], { type: 'application/javascript' });
-    const stockfish = new Worker(URL.createObjectURL(workerBlob));
-    stockfish.postMessage({ command: 'init', stockfishUrl: chrome.runtime.getURL('worker/stockfish.js') });
+    let MoveRenderer = null;
+    let ToggleUI = null;
 
     async function initModules() {
         try {
             const { BoardReader } = await import(chrome.runtime.getURL('content/board-reader.js'));
-            const { MoveRenderer } = await import(chrome.runtime.getURL('content/move-renderer.js'));
-            const { ToggleUI } = await import(chrome.runtime.getURL('content/toggle-ui.js'));
-
+            ({ MoveRenderer } = await import(chrome.runtime.getURL('content/move-renderer.js')));
+            ({ ToggleUI } = await import(chrome.runtime.getURL('content/toggle-ui.js')));
             reader = new BoardReader();
-            return { BoardReader, MoveRenderer, ToggleUI };
         } catch (e) {
             console.error("Failed to load Checkmate modules:", e);
         }
     }
-
-    stockfish.onmessage = (e) => {
-        const move = e.data.bestMove;
-        if (renderer && move) {
-            const from = uciToIndex(move.substring(0, 2));
-            const to = uciToIndex(move.substring(2, 4));
-            renderer.drawArrow(from, to);
-            if (ui) ui.updateNotation(move);
-        }
-    };
 
     function uciToIndex(uci) {
         const file = uci.charCodeAt(0) - 97;
@@ -40,58 +23,49 @@
         return rank * 8 + file;
     }
 
-    chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-        if (request.action === "toggle") {
-            if (!reader) await initModules();
-            if (request.enabled) {
-                startSession();
-            } else {
-                endSession();
-            }
+    chrome.runtime.onMessage.addListener((request) => {
+        if (request.action === 'toggle') {
+            (async () => {
+                if (!reader) await initModules();
+                if (request.enabled) {
+                    startSession();
+                } else {
+                    endSession();
+                }
+            })();
+        } else if (request.action === 'bestMove' && renderer) {
+            const move = request.move;
+            renderer.drawArrow(uciToIndex(move.substring(0, 2)), uciToIndex(move.substring(2, 4)));
+            if (ui) ui.updateNotation(move);
         }
     });
 
     function startSession() {
-        if (!reader) return;
+        if (!reader || !MoveRenderer || !ToggleUI) return;
         const board = reader.getBoardElement();
-        if (board) {
-            renderer = new MoveRenderer(board);
-            ui = new ToggleUI((enabled) => {
-                if (!enabled) endSession();
-            });
-            startObserving();
-        }
+        if (!board) return;
+        renderer = new MoveRenderer(board);
+        ui = new ToggleUI((enabled) => { if (!enabled) endSession(); });
+        startObserving();
     }
 
     function endSession() {
-        if (ui) {
-            ui.remove();
-            ui = null;
-        }
-        if (renderer) {
-            renderer.clear();
-            renderer = null;
-        }
+        if (ui) { ui.remove(); ui = null; }
+        if (renderer) { renderer.clear(); renderer = null; }
         stopObserving();
     }
 
     function startObserving() {
         const board = reader.getBoardElement();
         if (!board) return;
-
         observer = new MutationObserver(() => {
-            const state = reader.parsePosition();
-            const fen = reader.toFEN(state);
-            stockfish.postMessage({ command: 'analyze', fen });
+            const fen = reader.toFEN(reader.parsePosition());
+            chrome.runtime.sendMessage({ action: 'analyze', fen }).catch(() => {});
         });
-
         observer.observe(board, { childList: true, subtree: true });
     }
 
     function stopObserving() {
-        if (observer) {
-            observer.disconnect();
-            observer = null;
-        }
+        if (observer) { observer.disconnect(); observer = null; }
     }
 })();
