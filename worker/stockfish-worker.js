@@ -53,5 +53,18 @@ self.onmessage = async (e) => {
 function startSearch(fen) {
     searching = true;
     engine.postMessage(`position fen ${fen}`);
-    engine.postMessage('go depth 10');
+    
+    // Performance telemetry
+    const startTime = performance.now();
+    
+    // Hybrid Strategy: Depth 15 or 1 second, whichever comes first
+    console.log('[Stockfish] Searching with hybrid: depth 15, movetime 1000');
+    engine.postMessage('go depth 15 movetime 1000');
+
+    engine.addMessageListener((line) => {
+        if (line.startsWith('bestmove')) {
+            const duration = performance.now() - startTime;
+            console.log(`[Stockfish] Search finished in ${duration.toFixed(2)}ms`);
+        }
+    }, { once: true });
 }
