@@ -77,7 +77,7 @@
                 // Immediate feedback for user's turn
                 if (ui) ui.updateNotation('Analyzing...');
                 chrome.runtime.sendMessage({ action: 'analyze', fen }).catch(() => {});
-            }, 1000); // Increased to 1000ms to ensure opponent's move animation completes
+            }, 400); 
         };
 
         observer = new MutationObserver(analyze);
