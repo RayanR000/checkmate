@@ -6,7 +6,11 @@ chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'offscreen') return;
     offscreenPort = port;
 
-    port.onMessage.addListener(() => {}); // offscreen sends bestMove directly to tab
+    port.onMessage.addListener((msg) => {
+        if (msg.action === 'bestMove' && msg.tabId) {
+            chrome.tabs.sendMessage(msg.tabId, { action: 'bestMove', move: msg.move }).catch(() => {});
+        }
+    });
 
     port.onDisconnect.addListener(() => { offscreenPort = null; });
 

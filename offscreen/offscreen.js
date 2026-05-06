@@ -11,12 +11,9 @@ function initStockfish() {
             console.error('[Checkmate Offscreen] worker error:', e.data.error);
             return;
         }
-        if (e.data.bestMove && currentTabId) {
-            // Send directly to the content script tab — no SW hop needed.
-            chrome.tabs.sendMessage(currentTabId, {
-                action: 'bestMove',
-                move: e.data.bestMove,
-            }).catch((err) => console.error('[Checkmate Offscreen] tabs.sendMessage failed:', err.message));
+        if (e.data.bestMove && swPort) {
+            // Route back through SW — offscreen can't call chrome.tabs.sendMessage.
+            swPort.postMessage({ action: 'bestMove', move: e.data.bestMove, tabId: currentTabId });
         }
     };
     worker.onerror = (e) => console.error('[Checkmate Offscreen] worker onerror:', e.message);
