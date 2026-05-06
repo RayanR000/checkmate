@@ -62,6 +62,9 @@
                 const fen = reader.toFEN(state);
                 if (fen === lastSentFen) return; // same position, skip
                 lastSentFen = fen;
+                // Clear stale arrow immediately so user knows we're re-analyzing
+                if (renderer) renderer.clear();
+                if (ui) ui.updateNotation('...');
                 chrome.runtime.sendMessage({ action: 'analyze', fen }).catch(() => {});
             }, 400); // long enough for move animations to settle
         };

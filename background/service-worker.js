@@ -6,20 +6,14 @@ chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'offscreen') return;
     offscreenPort = port;
 
-    port.onMessage.addListener((msg) => {
-        if (msg.action === 'bestMove' && lastTabId) {
-            chrome.tabs.sendMessage(lastTabId, { action: 'bestMove', move: msg.move }).catch(() => {});
-        } else if (msg.action === 'status' && lastTabId) {
-            chrome.tabs.sendMessage(lastTabId, { action: 'status', text: msg.text }).catch(() => {});
-        }
-    });
+    port.onMessage.addListener(() => {}); // offscreen sends bestMove directly to tab
 
     port.onDisconnect.addListener(() => { offscreenPort = null; });
 
     if (pendingAnalysis) {
-        const { fen } = pendingAnalysis;
+        const { fen, tabId } = pendingAnalysis;
         pendingAnalysis = null;
-        offscreenPort.postMessage({ action: 'analyze', fen });
+        offscreenPort.postMessage({ action: 'analyze', fen, tabId });
     }
 });
 
@@ -43,9 +37,9 @@ chrome.runtime.onMessage.addListener((request, sender) => {
     lastTabId = sender.tab?.id;
 
     if (offscreenPort) {
-        offscreenPort.postMessage({ action: 'analyze', fen: request.fen });
+        offscreenPort.postMessage({ action: 'analyze', fen: request.fen, tabId: lastTabId });
     } else {
-        pendingAnalysis = { fen: request.fen };
+        pendingAnalysis = { fen: request.fen, tabId: lastTabId };
         ensureOffscreen();
     }
 });
