@@ -3,6 +3,20 @@ class BoardReader {
         this.boardSelector = 'wc-chess-board';
     }
 
+    isUserTurn() {
+        const board = this.getBoardElement();
+        if (!board) return true;
+        // Chess.com boards typically have a class indicating orientation or active side
+        // Example: 'flipped' class usually indicates the player is playing as Black
+        const isFlipped = board.classList.contains('flipped');
+        // We need to determine if it is currently our turn.
+        // Usually, Chess.com adds a class to the board to indicate whose turn it is.
+        // A common heuristic is looking for the presence of a 'turn-white' or 'turn-black' class,
+        // or checking if the 'is-white-turn' attribute exists.
+        // Let's check for a common indicator.
+        return !board.classList.contains('turn-b'); 
+    }
+
     getBoardElement() {
         return document.querySelector(this.boardSelector);
     }

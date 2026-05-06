@@ -59,14 +59,25 @@
             debounceTimer = setTimeout(() => {
                 const state = reader.parsePosition();
                 if (!state) return;
-                const fen = reader.toFEN(state);
-                if (fen === lastSentFen) return; // same position, skip
+                
+                const turn = reader.isUserTurn() ? 'w' : 'b'; 
+                
+                // Hide arrow and reset during opponent's turn
+                if (turn !== 'w') {
+                    if (renderer) renderer.clear();
+                    if (ui) ui.updateNotation('...');
+                    lastSentFen = null; // Reset so it triggers immediately when it becomes our turn
+                    return;
+                }
+
+                const fen = reader.toFEN(state, turn);
+                if (fen === lastSentFen) return;
                 lastSentFen = fen;
-                // Clear stale arrow immediately so user knows we're re-analyzing
-                if (renderer) renderer.clear();
-                if (ui) ui.updateNotation('...');
+                
+                // Immediate feedback for user's turn
+                if (ui) ui.updateNotation('Analyzing...');
                 chrome.runtime.sendMessage({ action: 'analyze', fen }).catch(() => {});
-            }, 400); // long enough for move animations to settle
+            }, 400); 
         };
 
         observer = new MutationObserver(analyze);
