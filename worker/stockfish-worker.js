@@ -1,36 +1,47 @@
 let engine = null;
-let ready = false;
-let pendingFen = null;
+let engineReady = false;
+let searching = false;
+let pendingFen = null; // latest position waiting to be analyzed
 
 self.onmessage = async (e) => {
     const { command, fen, stockfishUrl } = e.data;
     try {
         if (command === 'init') {
             importScripts(stockfishUrl);
-            // Pass mainScriptUrlOrBlob so pthread sub-workers load the correct script
-            // (without it, they get the directory path and hang indefinitely)
             engine = await Stockfish({ mainScriptUrlOrBlob: stockfishUrl });
             engine.addMessageListener((line) => {
                 if (line.startsWith('readyok')) {
-                    ready = true;
+                    engineReady = true;
                     self.postMessage({ engineReady: true });
                     if (pendingFen !== null) {
-                        runAnalysis(pendingFen);
-                        pendingFen = null;
+                        const f = pendingFen; pendingFen = null;
+                        startSearch(f);
                     }
                 }
                 if (line.startsWith('bestmove')) {
                     const move = line.split(' ')[1];
-                    self.postMessage({ bestMove: move });
+                    searching = false;
+                    if (move && move !== '(none)') {
+                        self.postMessage({ bestMove: move });
+                    }
+                    // Start next search if one was queued while we were busy.
+                    if (pendingFen !== null) {
+                        const f = pendingFen; pendingFen = null;
+                        startSearch(f);
+                    }
                 }
             });
             engine.postMessage('uci');
             engine.postMessage('isready');
+
         } else if (command === 'analyze') {
-            if (ready) {
-                runAnalysis(fen);
+            if (!engineReady) {
+                pendingFen = fen; // will run when readyok arrives
+            } else if (searching) {
+                pendingFen = fen; // queue: picked up after current bestmove arrives
+                // Do NOT send stop — that would corrupt UCI state with a stray bestmove
             } else {
-                pendingFen = fen;
+                startSearch(fen);
             }
         }
     } catch (err) {
@@ -39,8 +50,8 @@ self.onmessage = async (e) => {
     }
 };
 
-function runAnalysis(fen) {
-    engine.postMessage('stop');
+function startSearch(fen) {
+    searching = true;
     engine.postMessage(`position fen ${fen}`);
-    engine.postMessage('go depth 12');
+    engine.postMessage('go movetime 1500');
 }

@@ -3,6 +3,7 @@
     let renderer = null;
     let ui = null;
     let observer = null;
+    let lastSentFen = null; // deduplicate — don't re-analyze same position
 
     chrome.runtime.onMessage.addListener((request) => {
         if (request.action === 'toggle') {
@@ -12,10 +13,12 @@
                 endSession();
             }
         } else if (request.action === 'bestMove') {
-            console.log('[Checkmate] bestMove received:', request.move);
-            if (ui) ui.updateNotation(request.move || '(none)');
             if (renderer && request.move && request.move !== '(none)') {
-                renderer.drawArrow(uciToIndex(request.move.substring(0, 2)), uciToIndex(request.move.substring(2, 4)));
+                renderer.drawArrow(
+                    uciToIndex(request.move.substring(0, 2)),
+                    uciToIndex(request.move.substring(2, 4))
+                );
+                if (ui) ui.updateNotation(request.move);
             }
         } else if (request.action === 'status') {
             if (ui) ui.updateNotation(request.text);
@@ -36,7 +39,6 @@
         renderer = new MoveRenderer(board);
         ui = new ToggleUI((enabled) => { if (!enabled) endSession(); });
         startObserving();
-        console.log('[Checkmate] session started');
     }
 
     function endSession() {
@@ -44,6 +46,7 @@
         if (renderer) { renderer.clear(); renderer = null; }
         stopObserving();
         reader = null;
+        lastSentFen = null;
     }
 
     function startObserving() {
@@ -57,17 +60,19 @@
                 const state = reader.parsePosition();
                 if (!state) return;
                 const fen = reader.toFEN(state);
-                if (ui) ui.updateNotation('...');
-                console.log('[Checkmate] sending FEN:', fen);
-                chrome.runtime.sendMessage({ action: 'analyze', fen }).catch((e) => {
-                    console.error('[Checkmate] sendMessage failed:', e.message);
-                    if (ui) ui.updateNotation('ERR:send');
-                });
-            }, 150);
+                if (fen === lastSentFen) return; // same position, skip
+                lastSentFen = fen;
+                chrome.runtime.sendMessage({ action: 'analyze', fen }).catch(() => {});
+            }, 400); // long enough for move animations to settle
         };
 
         observer = new MutationObserver(analyze);
-        observer.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+        observer.observe(board, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class'],
+        });
         analyze();
     }
 
