@@ -53,5 +53,5 @@ self.onmessage = async (e) => {
 function startSearch(fen) {
     searching = true;
     engine.postMessage(`position fen ${fen}`);
-    engine.postMessage('go movetime 1500');
+    engine.postMessage('go depth 10');
 }
