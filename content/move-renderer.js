@@ -38,13 +38,16 @@ class MoveRenderer {
         this.clear();
         const rect = this.board.getBoundingClientRect();
         const squareSize = rect.width / 8;
+        const isFlipped = this.board.classList.contains('flipped');
 
         const getCoords = (index) => {
             const file = index % 8;
             const rank = Math.floor(index / 8);
+            const xFile = isFlipped ? (7 - file) : file;
+            const yRank = isFlipped ? rank : (7 - rank);
             return {
-                x: file * squareSize + squareSize / 2,
-                y: (7 - rank) * squareSize + squareSize / 2,
+                x: xFile * squareSize + squareSize / 2,
+                y: yRank * squareSize + squareSize / 2,
             };
         };
 
@@ -55,6 +58,7 @@ class MoveRenderer {
         const dx = end.x - start.x;
         const dy = end.y - start.y;
         const len = Math.sqrt(dx * dx + dy * dy);
+        if (!len) return;
         const shorten = squareSize * 0.18;
         const ex = end.x - (dx / len) * shorten;
         const ey = end.y - (dy / len) * shorten;

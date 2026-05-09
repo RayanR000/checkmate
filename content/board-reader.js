@@ -3,22 +3,35 @@ class BoardReader {
         this.boardSelector = 'wc-chess-board';
     }
 
-    isUserTurn() {
-        const board = this.getBoardElement();
-        if (!board) return true;
-        // Chess.com boards typically have a class indicating orientation or active side
-        // Example: 'flipped' class usually indicates the player is playing as Black
-        const isFlipped = board.classList.contains('flipped');
-        // We need to determine if it is currently our turn.
-        // Usually, Chess.com adds a class to the board to indicate whose turn it is.
-        // A common heuristic is looking for the presence of a 'turn-white' or 'turn-black' class,
-        // or checking if the 'is-white-turn' attribute exists.
-        // Let's check for a common indicator.
-        return !board.classList.contains('turn-b'); 
-    }
-
     getBoardElement() {
         return document.querySelector(this.boardSelector);
+    }
+
+    getPlayerColor() {
+        const board = this.getBoardElement();
+        if (!board) return 'w';
+        return board.classList.contains('flipped') ? 'b' : 'w';
+    }
+
+    getSideToMove() {
+        const board = this.getBoardElement();
+        if (!board) return null;
+
+        const classNames = Array.from(board.classList);
+        const fullClassString = classNames.join(' ');
+        if (classNames.includes('turn-w') || /\bturn[-_]white\b/i.test(fullClassString) || /\bwhite[-_]turn\b/i.test(fullClassString)) {
+            return 'w';
+        }
+        if (classNames.includes('turn-b') || /\bturn[-_]black\b/i.test(fullClassString) || /\bblack[-_]turn\b/i.test(fullClassString)) {
+            return 'b';
+        }
+        return null;
+    }
+
+    isUserTurn() {
+        const sideToMove = this.getSideToMove();
+        if (!sideToMove) return true;
+        return sideToMove === this.getPlayerColor();
     }
 
     parsePosition() {
@@ -68,6 +81,20 @@ class BoardReader {
             if (emptyCount > 0) fen += emptyCount;
             if (row > 0) fen += '/';
         }
-        return `${fen} ${turn} - - 0 1`;
+        const castling = this.inferCastlingRights(boardState);
+        return `${fen} ${turn} ${castling} - 0 1`;
     }
+
+    inferCastlingRights(boardState) {
+        let rights = '';
+        if (boardState[4] === 'wk' && boardState[7] === 'wr') rights += 'K';
+        if (boardState[4] === 'wk' && boardState[0] === 'wr') rights += 'Q';
+        if (boardState[60] === 'bk' && boardState[63] === 'br') rights += 'k';
+        if (boardState[60] === 'bk' && boardState[56] === 'br') rights += 'q';
+        return rights || '-';
+    }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = BoardReader;
 }

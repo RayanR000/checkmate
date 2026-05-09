@@ -1,10 +1,11 @@
 const toggle = document.getElementById('toggle');
 const track = document.getElementById('toggle-track');
 const label = document.getElementById('state-label');
+const statusText = document.getElementById('status-text');
 let isActive = false;
+let isBusy = false;
 
-// Initial state (would ideally be fetched from storage)
-function updateUI() {
+function updateUI(status = '') {
     if (isActive) {
         track.classList.add('active');
         label.classList.add('active');
@@ -14,16 +15,35 @@ function updateUI() {
         label.classList.remove('active');
         label.textContent = 'Off';
     }
+    statusText.textContent = status || (isActive ? 'Ready' : 'Off');
 }
 
-toggle.addEventListener('click', () => {
-    isActive = !isActive;
-    updateUI();
-    
-    // Notify the content script
-    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-        if (tabs.length > 0) {
-            chrome.tabs.sendMessage(tabs[0].id, {action: "toggle", enabled: isActive});
-        }
-    });
+async function queryState() {
+    const response = await chrome.runtime.sendMessage({ action: 'getState' });
+    isActive = Boolean(response?.enabled);
+    updateUI(response?.status || '');
+}
+
+async function setEnabled(enabled) {
+    const response = await chrome.runtime.sendMessage({ action: 'setEnabled', enabled });
+    isActive = Boolean(response?.enabled);
+    updateUI(response?.status || '');
+}
+
+toggle.addEventListener('click', async () => {
+    if (isBusy) return;
+    isBusy = true;
+    try {
+        await setEnabled(!isActive);
+    } catch (error) {
+        console.error('[Checkmate Popup] toggle failed:', error?.message || error);
+        updateUI('Error');
+    } finally {
+        isBusy = false;
+    }
+});
+
+queryState().catch((error) => {
+    console.error('[Checkmate Popup] state load failed:', error?.message || error);
+    updateUI('Error');
 });

@@ -3,7 +3,7 @@
   "name": "Checkmate",
   "version": "1.0.0",
   "description": "Real-time move suggestions for Chess.com",
-  "permissions": ["activeTab", "scripting", "tabs", "offscreen"],
+  "permissions": ["activeTab", "scripting", "tabs", "offscreen", "storage"],
   "host_permissions": ["https://www.chess.com/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

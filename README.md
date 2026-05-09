@@ -18,7 +18,7 @@ Checkmate is a browser extension that overlays real-time Stockfish best-move sug
 
 ## Usage
 
-Once installed, click the Checkmate extension icon in your browser toolbar to open the popup. Use the toggle switch to activate or deactivate move suggestions. When active, an amber arrow will appear on the Chess.com board indicating the best move calculated by Stockfish.
+Once installed, click the Checkmate extension icon in your browser toolbar to open the popup. Use the toggle switch to activate or deactivate move suggestions. The enabled state persists across tab reloads. When active, an amber arrow will appear on the Chess.com board indicating the best move calculated by Stockfish.
 
 ## Technical Overview
 
@@ -31,3 +31,23 @@ Checkmate operates entirely locally. No game data or personal information is tra
 ## Fair Play Notice
 
 Checkmate is intended for personal analysis and educational purposes only. Using this tool to cheat in online games violates the [Chess.com Fair Play Policy](https://www.chess.com/legal/fair-play). Do not use this extension during competitive play.
+
+## Verification
+
+Run automated checks:
+
+1. `node --check background/service-worker.js`
+2. `node --check content/board-reader.js`
+3. `node --check content/move-renderer.js`
+4. `node --check content/content.js`
+5. `node --check popup/popup.js`
+6. `node --test tests/board-reader.test.js`
+
+Manual release checklist:
+
+1. Load the extension in Chrome and open a Chess.com live game.
+2. Toggle Checkmate **on** in the popup and confirm status changes from `Ready` to `Analyzing...`.
+3. Confirm a best-move arrow appears and the move notation updates.
+4. Play as both white and black and verify arrow direction remains correct on flipped boards.
+5. Toggle Checkmate **off** in the popup and confirm the overlay/UI are removed.
+6. Reload the Chess.com tab and verify the enabled/disabled state persists.
