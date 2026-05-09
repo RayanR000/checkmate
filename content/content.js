@@ -1,4 +1,5 @@
 (async () => {
+    const StatusModel = globalThis.CheckmateStatusModel;
     let reader = null;
     let renderer = null;
     let ui = null;
@@ -15,25 +16,28 @@
             }
         } else if (request.action === 'bestMove') {
             if (renderer && request.move && request.move !== '(none)') {
+                const status = StatusModel.statusFromBestMove(request.move);
                 renderer.drawArrow(
                     uciToIndex(request.move.substring(0, 2)),
                     uciToIndex(request.move.substring(2, 4))
                 );
-                if (ui) ui.updateNotation(request.move);
-                reportStatus(`Best move: ${request.move}`);
+                if (ui) ui.updateNotation(StatusModel.toNotationText(status));
+                reportStatus(status);
             }
         } else if (request.action === 'status') {
-            if (ui) ui.updateNotation(request.text);
-            reportStatus(request.text);
+            const status = StatusModel.normalizeStatus(request.status || request.text, true);
+            if (ui) ui.updateNotation(StatusModel.toNotationText(status));
+            reportStatus(status);
         }
     });
 
-    async function reportStatus(text) {
-        const nextStatus = String(text || '');
+    async function reportStatus(statusLike) {
+        const status = StatusModel.normalizeStatus(statusLike, true);
+        const nextStatus = JSON.stringify(status);
         if (nextStatus === lastStatus) return;
         lastStatus = nextStatus;
         try {
-            await chrome.runtime.sendMessage({ action: 'statusUpdate', text: nextStatus });
+            await chrome.runtime.sendMessage({ action: 'statusUpdate', status });
         } catch (error) {
             console.warn('[Checkmate] status update failed:', error?.message || error);
         }
@@ -59,7 +63,7 @@
         const board = reader.getBoardElement();
         if (!board) {
             console.warn('[Checkmate] board not found');
-            reportStatus('No board detected');
+            reportStatus(StatusModel.createStatus(StatusModel.STATUS.INFO, 'No board detected'));
             return;
         }
         renderer = new MoveRenderer(board);
@@ -69,7 +73,7 @@
                 endSession();
             }
         });
-        reportStatus('Ready');
+        reportStatus(StatusModel.createStatus(StatusModel.STATUS.READY));
         startObserving();
     }
 
@@ -79,7 +83,7 @@
         stopObserving();
         reader = null;
         lastSentFen = null;
-        reportStatus('Off');
+        reportStatus(StatusModel.createStatus(StatusModel.STATUS.OFF));
     }
 
     function startObserving() {
@@ -99,9 +103,10 @@
 
                 // Hide arrow and reset during opponent's turn
                 if (!isUsersTurn) {
+                    const waitingStatus = StatusModel.createStatus(StatusModel.STATUS.WAITING);
                     if (renderer) renderer.clear();
-                    if (ui) ui.updateNotation('...');
-                    reportStatus('Waiting for your turn');
+                    if (ui) ui.updateNotation(StatusModel.toNotationText(waitingStatus));
+                    reportStatus(waitingStatus);
                     lastSentFen = null; // Reset so it triggers immediately when it becomes our turn
                     return;
                 }
@@ -111,8 +116,9 @@
                 lastSentFen = fen;
                 
                 // Immediate feedback for user's turn
-                if (ui) ui.updateNotation('Analyzing...');
-                reportStatus('Analyzing...');
+                const analyzingStatus = StatusModel.createStatus(StatusModel.STATUS.ANALYZING);
+                if (ui) ui.updateNotation(StatusModel.toNotationText(analyzingStatus));
+                reportStatus(analyzingStatus);
                 chrome.runtime.sendMessage({ action: 'analyze', fen })
                     .catch((error) => console.warn('[Checkmate] analyze send failed:', error?.message || error));
             }, 400); 
@@ -137,7 +143,7 @@
         if (state?.enabled) {
             startSession();
         } else {
-            reportStatus('Off');
+            reportStatus(StatusModel.createStatus(StatusModel.STATUS.OFF));
         }
     } catch (error) {
         console.warn('[Checkmate] initial state load failed:', error?.message || error);

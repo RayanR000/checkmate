@@ -24,6 +24,7 @@
     {
       "matches": ["https://www.chess.com/*"],
       "js": [
+        "common/status-model.js",
         "content/board-reader.js",
         "content/move-renderer.js",
         "content/toggle-ui.js",

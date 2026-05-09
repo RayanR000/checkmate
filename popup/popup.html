@@ -34,10 +34,25 @@
             gap: 12px;
         }
         .toggle-container {
+            appearance: none;
+            border: 0;
+            background: transparent;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 8px;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+        }
+        .toggle-container:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        .toggle-container:focus-visible {
+            outline: 2px solid var(--accent-amber);
+            outline-offset: 4px;
+            border-radius: 10px;
         }
         #toggle-track {
             width: 36px;
@@ -86,14 +101,15 @@
 <body>
     <header>Checkmate</header>
     <main>
-        <div class="toggle-container" id="toggle">
+        <button class="toggle-container" id="toggle" type="button" aria-pressed="false" aria-busy="false" aria-label="Toggle Checkmate">
             <div id="toggle-track">
                 <div id="toggle-thumb"></div>
             </div>
             <div id="state-label">Off</div>
-        </div>
+        </button>
         <div id="status-text">Loading...</div>
     </main>
+    <script src="../common/status-model.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>

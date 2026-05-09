@@ -18,7 +18,7 @@ Checkmate is a browser extension that overlays real-time Stockfish best-move sug
 
 ## Usage
 
-Once installed, click the Checkmate extension icon in your browser toolbar to open the popup. Use the toggle switch to activate or deactivate move suggestions. The enabled state persists across tab reloads. When active, an amber arrow will appear on the Chess.com board indicating the best move calculated by Stockfish.
+Once installed, click the Checkmate extension icon in your browser toolbar to open the popup. Use the toggle switch to activate or deactivate move suggestions. The toggle is keyboard accessible (Tab + Enter/Space), and the enabled state persists across tab reloads. When active, an amber arrow will appear on the Chess.com board indicating the best move calculated by Stockfish.
 
 ## Technical Overview
 
@@ -37,11 +37,12 @@ Checkmate is intended for personal analysis and educational purposes only. Using
 Run automated checks:
 
 1. `node --check background/service-worker.js`
-2. `node --check content/board-reader.js`
-3. `node --check content/move-renderer.js`
-4. `node --check content/content.js`
-5. `node --check popup/popup.js`
-6. `node --test tests/board-reader.test.js`
+2. `node --check common/status-model.js`
+3. `node --check content/board-reader.js`
+4. `node --check content/move-renderer.js`
+5. `node --check content/content.js`
+6. `node --check popup/popup.js`
+7. `node --test tests/board-reader.test.js tests/status-model.test.js`
 
 Manual release checklist:
 
@@ -51,3 +52,5 @@ Manual release checklist:
 4. Play as both white and black and verify arrow direction remains correct on flipped boards.
 5. Toggle Checkmate **off** in the popup and confirm the overlay/UI are removed.
 6. Reload the Chess.com tab and verify the enabled/disabled state persists.
+7. Navigate popup controls via keyboard only (Tab + Enter/Space) and verify toggle behavior matches mouse clicks.
+8. Confirm popup status and in-page overlay stay consistent across transitions (`Ready`, `Analyzing...`, `Waiting for your turn`, `Best move`, `Off`, `Error`).

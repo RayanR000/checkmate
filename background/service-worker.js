@@ -1,3 +1,6 @@
+importScripts('/common/status-model.js');
+
+const StatusModel = globalThis.CheckmateStatusModel;
 let offscreenPort = null;
 let pendingAnalysis = null;
 const tabStatus = new Map();
@@ -27,6 +30,18 @@ async function sendToggleToTab(tabId, enabled) {
     } catch (error) {
         console.warn('[Checkmate SW] toggle delivery failed:', error?.message || error);
     }
+}
+
+async function getChessTabs() {
+    return chrome.tabs.query({ url: ['https://www.chess.com/*'] });
+}
+
+function getDefaultStatus(enabled) {
+    return StatusModel.createStatus(enabled ? StatusModel.STATUS.READY : StatusModel.STATUS.OFF);
+}
+
+function getTabStatus(tabId, enabled) {
+    return StatusModel.normalizeStatus(tabStatus.get(tabId), enabled);
 }
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -80,7 +95,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'statusUpdate') {
         const tabId = sender.tab?.id;
         if (!tabId) return;
-        tabStatus.set(tabId, String(request.text || ''));
+        tabStatus.set(tabId, StatusModel.normalizeStatus(request.status || request.text, true));
         return;
     }
 
@@ -89,11 +104,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             try {
                 const enabled = await getEnabled();
                 const tabId = sender.tab?.id || (await getCurrentWindowActiveTab())?.id || null;
-                const status = tabId ? (tabStatus.get(tabId) || (enabled ? 'Ready' : 'Off')) : (enabled ? 'Ready' : 'Off');
+                const status = tabId ? getTabStatus(tabId, enabled) : getDefaultStatus(enabled);
                 sendResponse({ enabled, status });
             } catch (error) {
                 console.error('[Checkmate SW] getState failed:', error?.message || error);
-                sendResponse({ enabled: false, status: 'Error' });
+                sendResponse({ enabled: false, status: StatusModel.createStatus(StatusModel.STATUS.ERROR) });
             }
         })();
         return true;
@@ -104,15 +119,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             try {
                 const enabled = Boolean(request.enabled);
                 await setEnabled(enabled);
-                const activeTab = await getCurrentWindowActiveTab();
-                if (activeTab?.id && isChessTab(activeTab)) {
-                    await sendToggleToTab(activeTab.id, enabled);
-                    if (!enabled) tabStatus.set(activeTab.id, 'Off');
+                const chessTabs = await getChessTabs();
+                await Promise.all(chessTabs.map((tab) => sendToggleToTab(tab.id, enabled)));
+
+                const nextStatus = getDefaultStatus(enabled);
+                for (const tab of chessTabs) {
+                    tabStatus.set(tab.id, nextStatus);
                 }
-                sendResponse({ enabled, status: enabled ? 'Ready' : 'Off' });
+
+                if (!enabled) pendingAnalysis = null;
+                sendResponse({ enabled, status: nextStatus });
             } catch (error) {
                 console.error('[Checkmate SW] setEnabled failed:', error?.message || error);
-                sendResponse({ enabled: false, status: 'Error' });
+                sendResponse({ enabled: false, status: StatusModel.createStatus(StatusModel.STATUS.ERROR) });
             }
         })();
         return true;
@@ -132,6 +151,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     const enabled = await getEnabled();
     if (!enabled) return;
     await sendToggleToTab(tabId, true);
+    if (!tabStatus.has(tabId)) tabStatus.set(tabId, getDefaultStatus(true));
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
