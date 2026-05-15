@@ -35,6 +35,7 @@ class MoveRenderer {
     }
 
     drawArrow(fromIndex, toIndex) {
+        if (!this.overlay) return;
         this.clear();
         const rect = this.board.getBoundingClientRect();
         const squareSize = rect.width / 8;
@@ -77,10 +78,18 @@ class MoveRenderer {
     }
 
     clear() {
+        if (!this.overlay) return;
         // Remove all children except the defs block
         const children = Array.from(this.overlay.childNodes);
         children.forEach(child => {
             if (child.tagName !== 'defs') this.overlay.removeChild(child);
         });
+    }
+
+    remove() {
+        if (this.overlay && this.overlay.parentNode) {
+            this.overlay.parentNode.removeChild(this.overlay);
+        }
+        this.overlay = null;
     }
 }

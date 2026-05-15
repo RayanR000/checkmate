@@ -4,6 +4,9 @@
     let renderer = null;
     let ui = null;
     let observer = null;
+    let rootObserver = null;
+    let observedBoard = null;
+    let debounceTimer = null;
     let lastSentFen = null; // deduplicate — don't re-analyze same position
     let lastStatus = '';
 
@@ -66,7 +69,6 @@
             reportStatus(StatusModel.createStatus(StatusModel.STATUS.INFO, 'No board detected'));
             return;
         }
-        renderer = new MoveRenderer(board);
         ui = new ToggleUI((enabled) => {
             if (!enabled) {
                 setGlobalEnabled(false);
@@ -79,7 +81,7 @@
 
     function endSession() {
         if (ui) { ui.remove(); ui = null; }
-        if (renderer) { renderer.clear(); renderer = null; }
+        if (renderer) { renderer.remove(); renderer = null; }
         stopObserving();
         reader = null;
         lastSentFen = null;
@@ -90,7 +92,6 @@
         const board = reader.getBoardElement();
         if (!board) return;
 
-        let debounceTimer = null;
         const analyze = () => {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
@@ -124,18 +125,45 @@
             }, 400); 
         };
 
-        observer = new MutationObserver(analyze);
-        observer.observe(board, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class'],
+        const attachBoard = (nextBoard) => {
+            if (!nextBoard) return;
+            if (observedBoard === nextBoard) return;
+
+            if (observer) observer.disconnect();
+            observedBoard = nextBoard;
+            lastSentFen = null;
+
+            if (renderer) renderer.remove();
+            renderer = new MoveRenderer(nextBoard);
+
+            observer = new MutationObserver(analyze);
+            observer.observe(nextBoard, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class'],
+            });
+        };
+
+        attachBoard(board);
+
+        rootObserver = new MutationObserver(() => {
+            const latestBoard = reader.getBoardElement();
+            if (latestBoard && latestBoard !== observedBoard) {
+                attachBoard(latestBoard);
+                analyze();
+            }
         });
+        rootObserver.observe(document.body, { childList: true, subtree: true });
         analyze();
     }
 
     function stopObserving() {
         if (observer) { observer.disconnect(); observer = null; }
+        if (rootObserver) { rootObserver.disconnect(); rootObserver = null; }
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+        observedBoard = null;
     }
 
     try {
