@@ -3,6 +3,7 @@ let stockfish = null;
 let swPort = null;
 let currentTabId = null;
 let lastFen = null;
+let lastRequestId = null;
 let watchdog = null;
 
 function clearWatchdog() {
@@ -10,20 +11,21 @@ function clearWatchdog() {
     watchdog = null;
 }
 
-function armWatchdog(fen) {
+function armWatchdog(fen, requestId) {
     clearWatchdog();
     watchdog = setTimeout(() => {
         console.warn('[Checkmate Offscreen] watchdog: no bestMove in 6s, restarting worker');
         if (stockfish) { stockfish.terminate(); stockfish = null; }
-        if (lastFen) analyze(lastFen); // retry with same FEN
+        if (lastFen) analyze(lastFen, requestId); // retry with same FEN and request
     }, 6000);
 }
 
-function analyze(fen) {
+function analyze(fen, requestId) {
     lastFen = fen;
+    lastRequestId = requestId ?? null;
     if (!stockfish) stockfish = initStockfish();
-    stockfish.postMessage({ command: 'analyze', fen });
-    armWatchdog(fen);
+    stockfish.postMessage({ command: 'analyze', fen, requestId });
+    armWatchdog(fen, requestId);
 }
 
 function initStockfish() {
@@ -34,13 +36,18 @@ function initStockfish() {
             console.error('[Checkmate Offscreen] worker error:', e.data.error);
             clearWatchdog();
             stockfish = null;
-            if (lastFen) setTimeout(() => analyze(lastFen), 500);
+            if (lastFen) setTimeout(() => analyze(lastFen, lastRequestId), 500);
             return;
         }
         if (e.data.bestMove) {
             clearWatchdog();
             if (swPort) {
-                swPort.postMessage({ action: 'bestMove', move: e.data.bestMove, tabId: currentTabId });
+                swPort.postMessage({
+                    action: 'bestMove',
+                    move: e.data.bestMove,
+                    tabId: currentTabId,
+                    requestId: e.data.requestId,
+                });
             }
         }
     };
@@ -48,7 +55,7 @@ function initStockfish() {
         console.error('[Checkmate Offscreen] worker onerror:', e.message);
         clearWatchdog();
         stockfish = null;
-        if (lastFen) setTimeout(() => analyze(lastFen), 500);
+        if (lastFen) setTimeout(() => analyze(lastFen, lastRequestId), 500);
     };
     return worker;
 }
@@ -59,7 +66,7 @@ function connectToSW() {
     swPort.onMessage.addListener((msg) => {
         if (msg.action === 'analyze') {
             currentTabId = msg.tabId;
-            analyze(msg.fen);
+            analyze(msg.fen, msg.requestId);
         }
     });
 

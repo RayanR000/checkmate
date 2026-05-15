@@ -42,3 +42,54 @@ test('toFEN includes turn and inferred castling rights', () => {
 
     assert.equal(reader.toFEN(board, 'b'), 'r3k3/8/8/8/8/8/8/4K2R b Kq - 0 1');
 });
+
+test('getSideToMove falls back to active clock when board turn class is missing', () => {
+    const reader = new BoardReader();
+    const originalDocument = global.document;
+
+    const boardElement = {
+        classList: {
+            contains: (name) => name === 'flipped',
+            [Symbol.iterator]: function* iterator() { }
+        },
+    };
+
+    const activeClock = {
+        className: 'clock-component clock-player-turn clock-white',
+        getAttribute: () => '',
+        matches: () => false,
+        closest: () => null,
+    };
+
+    global.document = {
+        querySelector: (selector) => (selector === 'wc-chess-board' ? boardElement : activeClock),
+    };
+
+    try {
+        assert.equal(reader.getSideToMove(), 'w');
+    } finally {
+        global.document = originalDocument;
+    }
+});
+
+test('isUserTurn returns false when side to move cannot be determined', () => {
+    const reader = new BoardReader();
+    const originalDocument = global.document;
+
+    const boardElement = {
+        classList: {
+            contains: () => false,
+            [Symbol.iterator]: function* iterator() { }
+        },
+    };
+
+    global.document = {
+        querySelector: (selector) => (selector === 'wc-chess-board' ? boardElement : null),
+    };
+
+    try {
+        assert.equal(reader.isUserTurn(), false);
+    } finally {
+        global.document = originalDocument;
+    }
+});

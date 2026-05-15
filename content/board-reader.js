@@ -25,12 +25,49 @@ class BoardReader {
         if (classNames.includes('turn-b') || /\bturn[-_]black\b/i.test(fullClassString) || /\bblack[-_]turn\b/i.test(fullClassString)) {
             return 'b';
         }
+
+        return this.getSideToMoveFromClock();
+    }
+
+    getSideToMoveFromClock() {
+        const board = this.getBoardElement();
+        if (!board) return null;
+
+        const activeClock = this.getActiveClockElement();
+        if (!activeClock) return null;
+
+        const className = String(activeClock.className || '');
+        if (/\bclock[-_\s]?white\b/i.test(className)) return 'w';
+        if (/\bclock[-_\s]?black\b/i.test(className)) return 'b';
+
+        const dataCy = String(activeClock.getAttribute?.('data-cy') || '');
+        if (dataCy.includes('white')) return 'w';
+        if (dataCy.includes('black')) return 'b';
+
+        const isBottomClock = activeClock.matches?.('[data-cy="clock-bottom"], .clock-bottom, [class*="clock-bottom"]');
+        if (isBottomClock) return this.getPlayerColor();
+
+        const isTopClock = activeClock.matches?.('[data-cy="clock-top"], .clock-top, [class*="clock-top"]');
+        if (isTopClock) return this.getPlayerColor() === 'w' ? 'b' : 'w';
+
         return null;
+    }
+
+    getActiveClockElement() {
+        const activeClock = document.querySelector(
+            '.clock-component.clock-player-turn,' +
+            '.clock-player-turn,' +
+            '[data-cy="clock-bottom"].clock-player-turn,' +
+            '[data-cy="clock-top"].clock-player-turn'
+        );
+        if (!activeClock) return null;
+
+        return activeClock.closest?.('[data-cy="clock-bottom"], [data-cy="clock-top"], .clock-component, .clock-bottom, .clock-top') || activeClock;
     }
 
     isUserTurn() {
         const sideToMove = this.getSideToMove();
-        if (!sideToMove) return true;
+        if (!sideToMove) return false;
         return sideToMove === this.getPlayerColor();
     }
 

@@ -9,10 +9,7 @@
     let debounceTimer = null;
     let lastSentFen = null; // deduplicate — don't re-analyze same position
     let lastStatus = '';
-    let lastPositionKey = null;
-    let positionVersion = 0;
-    let lastRequestedVersion = -1;
-    let nextArrowVersion = 0;
+    let latestAnalyzeRequestId = 0;
 
     chrome.runtime.onMessage.addListener((request) => {
         if (request.action === 'toggle') {
@@ -23,10 +20,11 @@
             }
         } else if (request.action === 'bestMove') {
             if (renderer && request.move && request.move !== '(none)') {
-                const shouldHideArrow = !isUsersTurnNow()
-                    || lastRequestedVersion !== positionVersion
-                    || positionVersion < nextArrowVersion;
-                if (shouldHideArrow) {
+                if (request.requestId && request.requestId !== latestAnalyzeRequestId) {
+                    return;
+                }
+
+                if (!isUsersTurnNow()) {
                     const waitingStatus = StatusModel.createStatus(StatusModel.STATUS.WAITING);
                     renderer.clear();
                     if (ui) ui.updateNotation(StatusModel.toNotationText(waitingStatus));
@@ -38,7 +36,6 @@
                     uciToIndex(request.move.substring(0, 2)),
                     uciToIndex(request.move.substring(2, 4))
                 );
-                nextArrowVersion = positionVersion + 2;
                 if (ui) ui.updateNotation(StatusModel.toNotationText(status));
                 reportStatus(status);
             }
@@ -107,10 +104,7 @@
         stopObserving();
         reader = null;
         lastSentFen = null;
-        lastPositionKey = null;
-        positionVersion = 0;
-        lastRequestedVersion = -1;
-        nextArrowVersion = 0;
+        latestAnalyzeRequestId = 0;
         reportStatus(StatusModel.createStatus(StatusModel.STATUS.OFF));
     }
 
@@ -123,39 +117,25 @@
             debounceTimer = setTimeout(() => {
                 const state = reader.parsePosition();
                 if (!state) return;
-                const positionKey = state.join(',');
-
-                if (lastPositionKey === null) {
-                    lastPositionKey = positionKey;
-                } else if (positionKey !== lastPositionKey) {
-                    positionVersion += 1;
-                    lastPositionKey = positionKey;
-                }
 
                 const playerColor = reader.getPlayerColor();
                 const sideToMove = reader.getSideToMove();
                 const isUsersTurn = isUsersTurnNow();
 
-                // Hide arrow and reset during opponent's turn
-                if (!isUsersTurn) {
-                    const waitingStatus = StatusModel.createStatus(StatusModel.STATUS.WAITING);
-                    if (renderer) renderer.clear();
-                    if (ui) ui.updateNotation(StatusModel.toNotationText(waitingStatus));
-                    reportStatus(waitingStatus);
-                    lastSentFen = null; // Reset so it triggers immediately when it becomes our turn
-                    return;
-                }
-
                 const fen = reader.toFEN(state, sideToMove || playerColor);
                 if (fen === lastSentFen) return;
                 lastSentFen = fen;
-                lastRequestedVersion = positionVersion;
-                
-                // Immediate feedback for user's turn
-                const analyzingStatus = StatusModel.createStatus(StatusModel.STATUS.ANALYZING);
-                if (ui) ui.updateNotation(StatusModel.toNotationText(analyzingStatus));
-                reportStatus(analyzingStatus);
-                chrome.runtime.sendMessage({ action: 'analyze', fen })
+
+                const nextStatus = StatusModel.createStatus(
+                    isUsersTurn ? StatusModel.STATUS.ANALYZING : StatusModel.STATUS.WAITING
+                );
+                if (!isUsersTurn && renderer) renderer.clear();
+                if (ui) ui.updateNotation(StatusModel.toNotationText(nextStatus));
+                reportStatus(nextStatus);
+
+                latestAnalyzeRequestId += 1;
+                const requestId = latestAnalyzeRequestId;
+                chrome.runtime.sendMessage({ action: 'analyze', fen, requestId })
                     .catch((error) => console.warn('[Checkmate] analyze send failed:', error?.message || error));
             }, 400); 
         };
@@ -167,10 +147,7 @@
             if (observer) observer.disconnect();
             observedBoard = nextBoard;
             lastSentFen = null;
-            lastPositionKey = null;
-            positionVersion = 0;
-            lastRequestedVersion = -1;
-            nextArrowVersion = reader.getPlayerColor() === 'b' ? 1 : 0;
+            latestAnalyzeRequestId = 0;
 
             if (renderer) renderer.remove();
             renderer = new MoveRenderer(nextBoard);

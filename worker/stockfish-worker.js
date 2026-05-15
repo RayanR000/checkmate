@@ -1,10 +1,11 @@
 let engine = null;
 let engineReady = false;
 let searching = false;
-let pendingFen = null; // latest position waiting to be analyzed
+let pendingJob = null; // latest position waiting to be analyzed
+let activeRequestId = null;
 
 self.onmessage = async (e) => {
-    const { command, fen, stockfishUrl } = e.data;
+    const { command, fen, requestId, stockfishUrl } = e.data;
     try {
         if (command === 'init') {
             importScripts(stockfishUrl);
@@ -13,21 +14,22 @@ self.onmessage = async (e) => {
                 if (line.startsWith('readyok')) {
                     engineReady = true;
                     self.postMessage({ engineReady: true });
-                    if (pendingFen !== null) {
-                        const f = pendingFen; pendingFen = null;
-                        startSearch(f);
+                    if (pendingJob !== null) {
+                        const job = pendingJob; pendingJob = null;
+                        startSearch(job.fen, job.requestId);
                     }
                 }
                 if (line.startsWith('bestmove')) {
                     const move = line.split(' ')[1];
                     searching = false;
                     if (move && move !== '(none)') {
-                        self.postMessage({ bestMove: move });
+                        self.postMessage({ bestMove: move, requestId: activeRequestId });
                     }
+                    activeRequestId = null;
                     // Start next search if one was queued while we were busy.
-                    if (pendingFen !== null) {
-                        const f = pendingFen; pendingFen = null;
-                        startSearch(f);
+                    if (pendingJob !== null) {
+                        const job = pendingJob; pendingJob = null;
+                        startSearch(job.fen, job.requestId);
                     }
                 }
             });
@@ -36,12 +38,12 @@ self.onmessage = async (e) => {
 
         } else if (command === 'analyze') {
             if (!engineReady) {
-                pendingFen = fen; // will run when readyok arrives
+                pendingJob = { fen, requestId }; // will run when readyok arrives
             } else if (searching) {
-                pendingFen = fen; // queue: picked up after current bestmove arrives
+                pendingJob = { fen, requestId }; // queue: picked up after current bestmove arrives
                 // Do NOT send stop — that would corrupt UCI state with a stray bestmove
             } else {
-                startSearch(fen);
+                startSearch(fen, requestId);
             }
         }
     } catch (err) {
@@ -50,8 +52,9 @@ self.onmessage = async (e) => {
     }
 };
 
-function startSearch(fen) {
+function startSearch(fen, requestId) {
     searching = true;
+    activeRequestId = requestId ?? null;
     engine.postMessage(`position fen ${fen}`);
     
     // Performance telemetry

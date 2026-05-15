@@ -50,7 +50,11 @@ chrome.runtime.onConnect.addListener((port) => {
 
     port.onMessage.addListener((msg) => {
         if (msg.action === 'bestMove' && msg.tabId) {
-            chrome.tabs.sendMessage(msg.tabId, { action: 'bestMove', move: msg.move })
+            chrome.tabs.sendMessage(msg.tabId, {
+                action: 'bestMove',
+                move: msg.move,
+                requestId: msg.requestId,
+            })
                 .catch((error) => console.warn('[Checkmate SW] bestMove delivery failed:', error?.message || error));
         }
     });
@@ -58,9 +62,9 @@ chrome.runtime.onConnect.addListener((port) => {
     port.onDisconnect.addListener(() => { offscreenPort = null; });
 
     if (pendingAnalysis) {
-        const { fen, tabId } = pendingAnalysis;
+        const { fen, tabId, requestId } = pendingAnalysis;
         pendingAnalysis = null;
-        offscreenPort.postMessage({ action: 'analyze', fen, tabId });
+        offscreenPort.postMessage({ action: 'analyze', fen, tabId, requestId });
     }
 });
 
@@ -84,9 +88,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const tabId = sender.tab?.id;
         if (!tabId) return;
         if (offscreenPort) {
-            offscreenPort.postMessage({ action: 'analyze', fen: request.fen, tabId });
+            offscreenPort.postMessage({
+                action: 'analyze',
+                fen: request.fen,
+                tabId,
+                requestId: request.requestId,
+            });
         } else {
-            pendingAnalysis = { fen: request.fen, tabId };
+            pendingAnalysis = { fen: request.fen, tabId, requestId: request.requestId };
             ensureOffscreen();
         }
         return;
