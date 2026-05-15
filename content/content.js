@@ -74,9 +74,7 @@
 
     function isUsersTurnNow() {
         if (!reader) return true;
-        const playerColor = reader.getPlayerColor();
-        const sideToMove = reader.getSideToMove();
-        return sideToMove ? (sideToMove === playerColor) : reader.isUserTurn();
+        return reader.isUserTurn();
     }
 
     function startSession() {

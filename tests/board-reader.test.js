@@ -72,7 +72,31 @@ test('getSideToMove falls back to active clock when board turn class is missing'
     }
 });
 
-test('isUserTurn returns false when side to move cannot be determined', () => {
+test('isUserTurn returns true by default (white turn) when no other indicators are present', () => {
+    const reader = new BoardReader();
+    const originalDocument = global.document;
+
+    const boardElement = {
+        classList: {
+            contains: () => false, // Not flipped, player is white
+            [Symbol.iterator]: function* iterator() { }
+        },
+        querySelectorAll: () => [] // No highlights
+    };
+
+    global.document = {
+        querySelector: (selector) => (selector === 'wc-chess-board' ? boardElement : null),
+    };
+
+    try {
+        // Should return true because it defaults to white's turn
+        assert.equal(reader.isUserTurn(), true);
+    } finally {
+        global.document = originalDocument;
+    }
+});
+
+test('getSideToMove infers turn from highlights', () => {
     const reader = new BoardReader();
     const originalDocument = global.document;
 
@@ -81,6 +105,21 @@ test('isUserTurn returns false when side to move cannot be determined', () => {
             contains: () => false,
             [Symbol.iterator]: function* iterator() { }
         },
+        // Mock highlights and pieces
+        querySelectorAll: (selector) => {
+            if (selector === '.highlight') {
+                return [
+                    { classList: ['highlight', 'square-42'] },
+                    { classList: ['highlight', 'square-44'] }
+                ];
+            }
+            if (selector === '[class*="piece"]') {
+                return [
+                    { className: 'piece wp square-44' } // White pawn on square-44
+                ];
+            }
+            return [];
+        }
     };
 
     global.document = {
@@ -88,7 +127,8 @@ test('isUserTurn returns false when side to move cannot be determined', () => {
     };
 
     try {
-        assert.equal(reader.isUserTurn(), false);
+        // White moved (wp on square-44 highlight), so it's black's turn
+        assert.equal(reader.getSideToMove(), 'b');
     } finally {
         global.document = originalDocument;
     }

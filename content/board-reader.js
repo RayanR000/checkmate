@@ -26,7 +26,45 @@ class BoardReader {
             return 'b';
         }
 
-        return this.getSideToMoveFromClock();
+        const clockTurn = this.getSideToMoveFromClock();
+        if (clockTurn) return clockTurn;
+
+        return this.getSideToMoveFromHighlights();
+    }
+
+    getSideToMoveFromHighlights() {
+        const board = this.getBoardElement();
+        if (!board) return null;
+
+        const highlights = board.querySelectorAll('.highlight');
+        if (highlights.length === 0) {
+            // No moves made yet, it's white's turn
+            return 'w';
+        }
+
+        // We need to know where pieces are to see which highlight is the "to" square
+        const boardState = this.parsePosition();
+        if (!boardState) return 'w';
+
+        let lastMovedColor = null;
+        highlights.forEach(h => {
+            const squareClass = Array.from(h.classList).find(c => c.startsWith('square-'));
+            if (squareClass) {
+                const squareNum = parseInt(squareClass.replace('square-', ''));
+                const file = Math.floor(squareNum / 10) - 1;
+                const rank = (squareNum % 10) - 1;
+                const piece = boardState[rank * 8 + file];
+                if (piece) {
+                    // This square has a piece, so it's likely the "to" square
+                    lastMovedColor = piece[0];
+                }
+            }
+        });
+
+        if (lastMovedColor === 'w') return 'b';
+        if (lastMovedColor === 'b') return 'w';
+
+        return 'w';
     }
 
     getSideToMoveFromClock() {
