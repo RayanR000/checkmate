@@ -19,6 +19,13 @@
             }
         } else if (request.action === 'bestMove') {
             if (renderer && request.move && request.move !== '(none)') {
+                if (!isUsersTurnNow()) {
+                    const waitingStatus = StatusModel.createStatus(StatusModel.STATUS.WAITING);
+                    renderer.clear();
+                    if (ui) ui.updateNotation(StatusModel.toNotationText(waitingStatus));
+                    reportStatus(waitingStatus);
+                    return;
+                }
                 const status = StatusModel.statusFromBestMove(request.move);
                 renderer.drawArrow(
                     uciToIndex(request.move.substring(0, 2)),
@@ -58,6 +65,13 @@
         const file = uci.charCodeAt(0) - 97;
         const rank = parseInt(uci[1]) - 1;
         return rank * 8 + file;
+    }
+
+    function isUsersTurnNow() {
+        if (!reader) return true;
+        const playerColor = reader.getPlayerColor();
+        const sideToMove = reader.getSideToMove();
+        return sideToMove ? (sideToMove === playerColor) : reader.isUserTurn();
     }
 
     function startSession() {
@@ -100,7 +114,7 @@
 
                 const playerColor = reader.getPlayerColor();
                 const sideToMove = reader.getSideToMove();
-                const isUsersTurn = sideToMove ? (sideToMove === playerColor) : reader.isUserTurn();
+                const isUsersTurn = isUsersTurnNow();
 
                 // Hide arrow and reset during opponent's turn
                 if (!isUsersTurn) {
