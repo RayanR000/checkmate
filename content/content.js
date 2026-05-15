@@ -9,6 +9,10 @@
     let debounceTimer = null;
     let lastSentFen = null; // deduplicate — don't re-analyze same position
     let lastStatus = '';
+    let lastPositionKey = null;
+    let positionVersion = 0;
+    let lastRequestedVersion = -1;
+    let nextArrowVersion = 0;
 
     chrome.runtime.onMessage.addListener((request) => {
         if (request.action === 'toggle') {
@@ -19,7 +23,10 @@
             }
         } else if (request.action === 'bestMove') {
             if (renderer && request.move && request.move !== '(none)') {
-                if (!isUsersTurnNow()) {
+                const shouldHideArrow = !isUsersTurnNow()
+                    || lastRequestedVersion !== positionVersion
+                    || positionVersion < nextArrowVersion;
+                if (shouldHideArrow) {
                     const waitingStatus = StatusModel.createStatus(StatusModel.STATUS.WAITING);
                     renderer.clear();
                     if (ui) ui.updateNotation(StatusModel.toNotationText(waitingStatus));
@@ -31,6 +38,7 @@
                     uciToIndex(request.move.substring(0, 2)),
                     uciToIndex(request.move.substring(2, 4))
                 );
+                nextArrowVersion = positionVersion + 2;
                 if (ui) ui.updateNotation(StatusModel.toNotationText(status));
                 reportStatus(status);
             }
@@ -99,6 +107,10 @@
         stopObserving();
         reader = null;
         lastSentFen = null;
+        lastPositionKey = null;
+        positionVersion = 0;
+        lastRequestedVersion = -1;
+        nextArrowVersion = 0;
         reportStatus(StatusModel.createStatus(StatusModel.STATUS.OFF));
     }
 
@@ -111,6 +123,14 @@
             debounceTimer = setTimeout(() => {
                 const state = reader.parsePosition();
                 if (!state) return;
+                const positionKey = state.join(',');
+
+                if (lastPositionKey === null) {
+                    lastPositionKey = positionKey;
+                } else if (positionKey !== lastPositionKey) {
+                    positionVersion += 1;
+                    lastPositionKey = positionKey;
+                }
 
                 const playerColor = reader.getPlayerColor();
                 const sideToMove = reader.getSideToMove();
@@ -129,6 +149,7 @@
                 const fen = reader.toFEN(state, sideToMove || playerColor);
                 if (fen === lastSentFen) return;
                 lastSentFen = fen;
+                lastRequestedVersion = positionVersion;
                 
                 // Immediate feedback for user's turn
                 const analyzingStatus = StatusModel.createStatus(StatusModel.STATUS.ANALYZING);
@@ -146,11 +167,18 @@
             if (observer) observer.disconnect();
             observedBoard = nextBoard;
             lastSentFen = null;
+            lastPositionKey = null;
+            positionVersion = 0;
+            lastRequestedVersion = -1;
+            nextArrowVersion = reader.getPlayerColor() === 'b' ? 1 : 0;
 
             if (renderer) renderer.remove();
             renderer = new MoveRenderer(nextBoard);
 
-            observer = new MutationObserver(analyze);
+            observer = new MutationObserver(() => {
+                if (renderer) renderer.clear();
+                analyze();
+            });
             observer.observe(nextBoard, {
                 childList: true,
                 subtree: true,
