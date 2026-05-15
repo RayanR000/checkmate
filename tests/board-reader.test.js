@@ -115,7 +115,10 @@ test('getSideToMove infers turn from highlights', () => {
             }
             if (selector === '[class*="piece"]') {
                 return [
-                    { className: 'piece wp square-44' } // White pawn on square-44
+                    { 
+                        className: 'piece wp square-44',
+                        classList: ['piece', 'wp', 'square-44']
+                    } 
                 ];
             }
             return [];

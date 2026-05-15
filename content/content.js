@@ -124,6 +124,8 @@
                 if (fen === lastSentFen) return;
                 lastSentFen = fen;
 
+                if (renderer) renderer.clear();
+
                 const nextStatus = StatusModel.createStatus(
                     isUsersTurn ? StatusModel.STATUS.ANALYZING : StatusModel.STATUS.WAITING
                 );
@@ -151,7 +153,6 @@
             renderer = new MoveRenderer(nextBoard);
 
             observer = new MutationObserver(() => {
-                if (renderer) renderer.clear();
                 analyze();
             });
             observer.observe(nextBoard, {

@@ -36,30 +36,36 @@ class BoardReader {
         const board = this.getBoardElement();
         if (!board) return null;
 
-        const highlights = board.querySelectorAll('.highlight');
+        const highlights = Array.from(board.querySelectorAll('.highlight'));
         if (highlights.length === 0) {
-            // No moves made yet, it's white's turn
             return 'w';
         }
 
-        // We need to know where pieces are to see which highlight is the "to" square
-        const boardState = this.parsePosition();
-        if (!boardState) return 'w';
+        const pieces = Array.from(board.querySelectorAll('[class*="piece"]'));
+        const pieceMap = new Map();
+        pieces.forEach(p => {
+            const squareClass = Array.from(p.classList).find(c => c.startsWith('square-'));
+            if (squareClass) {
+                const squareNum = parseInt(squareClass.replace('square-', ''));
+                const typeClass = Array.from(p.classList).find(c => c.length === 2 && /^[wb][pnbrqk]$/.test(c));
+                if (typeClass) pieceMap.set(squareNum, typeClass[0]);
+            }
+        });
 
+        // The 'to' square of the last move is highlighted AND has a piece on it.
+        // The 'from' square of the last move is highlighted but is now empty.
         let lastMovedColor = null;
-        highlights.forEach(h => {
+        for (const h of highlights) {
             const squareClass = Array.from(h.classList).find(c => c.startsWith('square-'));
             if (squareClass) {
                 const squareNum = parseInt(squareClass.replace('square-', ''));
-                const file = Math.floor(squareNum / 10) - 1;
-                const rank = (squareNum % 10) - 1;
-                const piece = boardState[rank * 8 + file];
-                if (piece) {
-                    // This square has a piece, so it's likely the "to" square
-                    lastMovedColor = piece[0];
+                const colorAtSquare = pieceMap.get(squareNum);
+                if (colorAtSquare) {
+                    lastMovedColor = colorAtSquare;
+                    break; 
                 }
             }
-        });
+        }
 
         if (lastMovedColor === 'w') return 'b';
         if (lastMovedColor === 'b') return 'w';
