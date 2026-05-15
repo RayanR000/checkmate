@@ -137,7 +137,7 @@
                 const requestId = latestAnalyzeRequestId;
                 chrome.runtime.sendMessage({ action: 'analyze', fen, requestId })
                     .catch((error) => console.warn('[Checkmate] analyze send failed:', error?.message || error));
-            }, 400); 
+            }, 250); 
         };
 
         const attachBoard = (nextBoard) => {

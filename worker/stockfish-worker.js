@@ -40,8 +40,8 @@ self.onmessage = async (e) => {
             if (!engineReady) {
                 pendingJob = { fen, requestId }; // will run when readyok arrives
             } else if (searching) {
-                pendingJob = { fen, requestId }; // queue: picked up after current bestmove arrives
-                // Do NOT send stop — that would corrupt UCI state with a stray bestmove
+                pendingJob = { fen, requestId };
+                engine.postMessage('stop'); // Interrupt current search to pick up the new job faster
             } else {
                 startSearch(fen, requestId);
             }
